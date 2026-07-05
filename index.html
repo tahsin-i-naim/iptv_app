@@ -1,1 +1,1295 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>NAIM IPTV - Set-Top Box OSD Style</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #000;
+            font-family: 'Segoe UI', 'Roboto', Arial, sans-serif;
+        }
+
+        .tv-container {
+            width: 100vw;
+            height: 100vh;
+            background: #000;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Video Background */
+        .video-background {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: radial-gradient(ellipse at center, #0a0a0a 0%, #000000 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 0;
+        }
+
+        .video-background .channel-label {
+            color: rgba(255,255,255,0.03);
+            font-size: clamp(40px, 10vw, 120px);
+            font-weight: bold;
+            letter-spacing: clamp(5px, 1vw, 10px);
+            text-transform: uppercase;
+            font-family: 'Arial', sans-serif;
+        }
+
+        #videoPlayer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            background: #000;
+            object-fit: cover;
+        }
+
+        /* Loading Overlay */
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.6);
+            z-index: 10;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: clamp(10px, 2vh, 20px);
+            pointer-events: none;
+        }
+
+        .loading-overlay.show {
+            display: flex;
+        }
+
+        .loading-overlay .spinner {
+            width: clamp(30px, 5vw, 50px);
+            height: clamp(30px, 5vw, 50px);
+            border: 3px solid rgba(255,255,255,0.05);
+            border-top: 3px solid #00bcd4;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loading-overlay .load-text {
+            color: rgba(255,255,255,0.3);
+            font-size: clamp(10px, 1.2vw, 13px);
+            letter-spacing: 2px;
+        }
+
+        /* ============================================
+           OSD BOTTOM BAR - Responsive
+           ============================================ */
+        .osd-bottom-bar {
+            position: absolute;
+            bottom: clamp(15px, 3vh, 30px);
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 5;
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(10px);
+            padding: clamp(8px, 1.5vh, 12px) clamp(15px, 2.5vw, 25px);
+            border-radius: clamp(6px, 0.8vw, 8px);
+            border: 1px solid rgba(0,188,212,0.1);
+            opacity: 0;
+            transition: all 0.4s ease;
+            min-width: clamp(200px, 40vw, 450px);
+            max-width: 90vw;
+            pointer-events: none;
+        }
+
+        .osd-bottom-bar.show {
+            opacity: 1;
+        }
+
+        .osd-bottom-content {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            max-width: 100%;
+            gap: clamp(8px, 1.5vw, 20px);
+            flex-wrap: wrap;
+        }
+
+        /* Left - Channel Number & Name */
+        .osd-left {
+            display: flex;
+            align-items: center;
+            gap: clamp(8px, 1.2vw, 15px);
+            flex: 1;
+            min-width: 0;
+        }
+
+        .osd-channel-number {
+            font-size: clamp(20px, 3.5vw, 38px);
+            font-weight: 700;
+            color: #00bcd4;
+            font-family: 'Arial', sans-serif;
+            text-shadow: 0 0 30px rgba(0,188,212,0.2);
+            letter-spacing: 1px;
+            background: rgba(0,188,212,0.08);
+            padding: 0 clamp(6px, 0.8vw, 12px);
+            border-radius: 4px;
+            border-left: 3px solid #00bcd4;
+            flex-shrink: 0;
+        }
+
+        .osd-channel-info {
+            display: flex;
+            flex-direction: column;
+            gap: 0px;
+            min-width: 0;
+            flex: 1;
+        }
+
+        .osd-channel-name {
+            font-size: clamp(14px, 2vw, 22px);
+            font-weight: 600;
+            color: #fff;
+            text-shadow: 0 0 20px rgba(0,0,0,0.8);
+            letter-spacing: 0.5px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .osd-channel-category {
+            font-size: clamp(9px, 0.9vw, 12px);
+            color: rgba(255,255,255,0.4);
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .osd-channel-category span {
+            color: #f39c12;
+        }
+
+        /* Right - Time & Live */
+        .osd-right {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 0px;
+            flex-shrink: 0;
+        }
+
+        .osd-time {
+            font-size: clamp(11px, 1.2vw, 14px);
+            color: rgba(255,255,255,0.3);
+            font-family: 'Arial', sans-serif;
+        }
+
+        .osd-live-badge {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: clamp(8px, 0.8vw, 10px);
+            color: #e74c3c;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            background: rgba(231,76,60,0.1);
+            padding: clamp(2px, 0.3vh, 3px) clamp(8px, 0.8vw, 12px);
+            border-radius: 12px;
+            border: 1px solid rgba(231,76,60,0.15);
+        }
+
+        .osd-live-badge .dot {
+            width: clamp(4px, 0.5vw, 6px);
+            height: clamp(4px, 0.5vw, 6px);
+            border-radius: 50%;
+            background: #e74c3c;
+            animation: blinkDot 1s infinite;
+        }
+
+        @keyframes blinkDot {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.2; }
+        }
+
+        /* ============================================
+           CHANNEL CHANGE OSD - Center (Responsive)
+           ============================================ */
+        .osd-channel-change {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 4;
+            text-align: center;
+            opacity: 0;
+            transition: all 0.3s ease;
+            pointer-events: none;
+        }
+
+        .osd-channel-change.show {
+            opacity: 1;
+        }
+
+        .osd-channel-change .cc-number {
+            font-size: clamp(50px, 12vw, 140px);
+            font-weight: 700;
+            color: rgba(0,188,212,0.08);
+            font-family: 'Arial', sans-serif;
+            text-shadow: 0 0 60px rgba(0,0,0,0.9);
+        }
+
+        .osd-channel-change .cc-name {
+            font-size: clamp(16px, 3.5vw, 40px);
+            font-weight: 600;
+            color: rgba(255,255,255,0.05);
+            letter-spacing: clamp(2px, 0.3vw, 3px);
+            margin-top: -5px;
+        }
+
+        .osd-channel-change .cc-category {
+            font-size: clamp(10px, 1.2vw, 16px);
+            color: rgba(255,255,255,0.02);
+            letter-spacing: clamp(2px, 0.3vw, 4px);
+            margin-top: 2px;
+        }
+
+        /* ============================================
+           VOLUME INDICATOR - Left Side (Responsive)
+           ============================================ */
+        .osd-volume-indicator {
+            position: absolute;
+            left: clamp(15px, 2vw, 30px);
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 6;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: clamp(4px, 0.5vh, 6px);
+            opacity: 0;
+            transition: all 0.3s ease;
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(10px);
+            padding: clamp(10px, 1.5vh, 15px) clamp(8px, 1vw, 12px);
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.03);
+            pointer-events: none;
+        }
+
+        .osd-volume-indicator.show {
+            opacity: 1;
+        }
+
+        .osd-volume-indicator .vol-icon {
+            font-size: clamp(16px, 1.8vw, 20px);
+            color: rgba(255,255,255,0.3);
+            margin-bottom: 2px;
+        }
+
+        .osd-volume-indicator .vol-bar {
+            width: clamp(4px, 0.4vw, 5px);
+            height: clamp(60px, 15vh, 150px);
+            background: rgba(255,255,255,0.05);
+            border-radius: 3px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .osd-volume-indicator .vol-bar .vol-fill {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 70%;
+            background: linear-gradient(to top, #00bcd4, #4CAF50);
+            border-radius: 3px;
+            transition: height 0.2s ease;
+        }
+
+        .osd-volume-indicator .vol-number {
+            font-size: clamp(12px, 1.2vw, 16px);
+            font-weight: 700;
+            color: rgba(255,255,255,0.3);
+            margin-top: 2px;
+            font-family: 'Arial', sans-serif;
+        }
+
+        /* ============================================
+           NUMBER INPUT DISPLAY - Center (Responsive)
+           ============================================ */
+        .number-input-display {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 8;
+            font-size: clamp(40px, 12vw, 120px);
+            font-weight: 700;
+            color: rgba(255,255,255,0.05);
+            font-family: 'Arial', sans-serif;
+            text-shadow: 0 0 60px rgba(0,0,0,0.9);
+            opacity: 0;
+            transition: all 0.3s ease;
+            pointer-events: none;
+            letter-spacing: clamp(8px, 1.5vw, 15px);
+        }
+
+        .number-input-display.show {
+            opacity: 1;
+        }
+
+        .number-input-display .num-highlight {
+            color: rgba(0,188,212,0.15);
+        }
+
+        /* ============================================
+           NOTIFICATION - Responsive
+           ============================================ */
+        .osd-notification {
+            position: absolute;
+            top: clamp(50px, 8vh, 80px);
+            left: 50%;
+            transform: translateX(-50%) translateY(-20px);
+            z-index: 20;
+            background: rgba(0,0,0,0.7);
+            backdrop-filter: blur(10px);
+            padding: clamp(8px, 1vh, 10px) clamp(16px, 2vw, 24px);
+            border-radius: 6px;
+            border: 1px solid rgba(0,188,212,0.1);
+            color: rgba(255,255,255,0.6);
+            font-size: clamp(11px, 1vw, 13px);
+            opacity: 0;
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            pointer-events: none;
+            font-family: 'Arial', sans-serif;
+            white-space: nowrap;
+            max-width: 90vw;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .osd-notification.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .osd-notification .highlight {
+            color: #00bcd4;
+        }
+
+        /* ============================================
+           REMOTE HINT - Bottom Right (Responsive)
+           ============================================ */
+        .remote-hint {
+            position: absolute;
+            bottom: clamp(60px, 10vh, 100px);
+            right: clamp(15px, 2vw, 30px);
+            z-index: 3;
+            color: rgba(255,255,255,0.02);
+            font-size: clamp(8px, 0.7vw, 10px);
+            text-align: right;
+            line-height: 1.8;
+            letter-spacing: 1px;
+            font-family: 'Arial', sans-serif;
+            display: none;
+        }
+
+        .remote-hint kbd {
+            background: rgba(255,255,255,0.02);
+            padding: 2px 8px;
+            border-radius: 4px;
+            border: 1px solid rgba(255,255,255,0.02);
+            font-size: clamp(7px, 0.6vw, 9px);
+            color: rgba(255,255,255,0.05);
+        }
+
+        /* Show remote hint only on larger screens */
+        @media (min-width: 1024px) {
+            .remote-hint {
+                display: block;
+            }
+        }
+
+        /* ============================================
+           RESPONSIVE BREAKPOINTS
+           ============================================ */
+
+        /* 24 inch TV - Small */
+        @media (max-width: 640px) {
+            .osd-bottom-bar {
+                bottom: 12px;
+                padding: 6px 12px;
+                min-width: 160px;
+                border-radius: 4px;
+            }
+
+            .osd-bottom-content {
+                gap: 4px;
+            }
+
+            .osd-left {
+                gap: 4px;
+            }
+
+            .osd-channel-number {
+                font-size: 16px;
+                padding: 0 4px;
+                border-left-width: 2px;
+            }
+
+            .osd-channel-name {
+                font-size: 11px;
+            }
+
+            .osd-channel-category {
+                font-size: 7px;
+            }
+
+            .osd-time {
+                font-size: 9px;
+            }
+
+            .osd-live-badge {
+                font-size: 6px;
+                padding: 1px 6px;
+            }
+
+            .osd-live-badge .dot {
+                width: 3px;
+                height: 3px;
+            }
+
+            .osd-channel-change .cc-number {
+                font-size: 40px;
+            }
+
+            .osd-channel-change .cc-name {
+                font-size: 12px;
+            }
+
+            .osd-channel-change .cc-category {
+                font-size: 8px;
+            }
+
+            .osd-volume-indicator {
+                padding: 6px 5px;
+                left: 10px;
+            }
+
+            .osd-volume-indicator .vol-icon {
+                font-size: 12px;
+            }
+
+            .osd-volume-indicator .vol-bar {
+                height: 40px;
+                width: 3px;
+            }
+
+            .osd-volume-indicator .vol-number {
+                font-size: 9px;
+            }
+
+            .number-input-display {
+                font-size: 30px;
+                letter-spacing: 4px;
+            }
+
+            .osd-notification {
+                font-size: 9px;
+                padding: 4px 10px;
+                top: 30px;
+            }
+
+            .loading-overlay .spinner {
+                width: 20px;
+                height: 20px;
+            }
+
+            .loading-overlay .load-text {
+                font-size: 9px;
+            }
+        }
+
+        /* 32 inch TV - Medium */
+        @media (min-width: 641px) and (max-width: 1024px) {
+            .osd-bottom-bar {
+                bottom: 18px;
+                padding: 8px 16px;
+                min-width: 220px;
+            }
+
+            .osd-channel-number {
+                font-size: 22px;
+            }
+
+            .osd-channel-name {
+                font-size: 16px;
+            }
+
+            .osd-channel-category {
+                font-size: 10px;
+            }
+
+            .osd-time {
+                font-size: 12px;
+            }
+
+            .osd-live-badge {
+                font-size: 9px;
+            }
+
+            .osd-channel-change .cc-number {
+                font-size: 60px;
+            }
+
+            .osd-channel-change .cc-name {
+                font-size: 20px;
+            }
+
+            .osd-volume-indicator .vol-bar {
+                height: 80px;
+            }
+
+            .number-input-display {
+                font-size: 50px;
+                letter-spacing: 8px;
+            }
+        }
+
+        /* 43 inch and above - Large */
+        @media (min-width: 1025px) {
+            .osd-bottom-bar {
+                bottom: 30px;
+                padding: 12px 25px;
+                min-width: 450px;
+            }
+
+            .osd-channel-number {
+                font-size: 38px;
+            }
+
+            .osd-channel-name {
+                font-size: 22px;
+            }
+
+            .osd-channel-category {
+                font-size: 12px;
+            }
+
+            .osd-time {
+                font-size: 14px;
+            }
+
+            .osd-live-badge {
+                font-size: 10px;
+            }
+
+            .osd-channel-change .cc-number {
+                font-size: 140px;
+            }
+
+            .osd-channel-change .cc-name {
+                font-size: 40px;
+            }
+
+            .osd-volume-indicator .vol-bar {
+                height: 150px;
+            }
+
+            .number-input-display {
+                font-size: 120px;
+                letter-spacing: 15px;
+            }
+        }
+
+        /* ============================================
+           ANIMATIONS
+           ============================================ */
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateX(-50%) translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(-50%) translateY(0);
+            }
+        }
+
+        .slide-up {
+            animation: slideUp 0.4s ease forwards;
+        }
+
+        @keyframes popInOSD {
+            0% {
+                transform: translate(-50%, -50%) scale(0.6);
+                opacity: 0;
+            }
+            100% {
+                transform: translate(-50%, -50%) scale(1);
+                opacity: 1;
+            }
+        }
+
+        @keyframes popOutOSD {
+            0% {
+                transform: translate(-50%, -50%) scale(1);
+                opacity: 1;
+            }
+            100% {
+                transform: translate(-50%, -50%) scale(1.2);
+                opacity: 0;
+            }
+        }
+
+        .pop-in-osd {
+            animation: popInOSD 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+
+        .pop-out-osd {
+            animation: popOutOSD 0.3s ease forwards;
+        }
+
+        @keyframes popInNumber {
+            0% {
+                transform: translate(-50%, -50%) scale(0.8);
+                opacity: 0;
+            }
+            100% {
+                transform: translate(-50%, -50%) scale(1);
+                opacity: 1;
+            }
+        }
+
+        .pop-in-number {
+            animation: popInNumber 0.2s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+
+        @keyframes popOutNumber {
+            0% {
+                transform: translate(-50%, -50%) scale(1);
+                opacity: 1;
+            }
+            100% {
+                transform: translate(-50%, -50%) scale(0.8);
+                opacity: 0;
+            }
+        }
+
+        .pop-out-number {
+            animation: popOutNumber 0.2s ease forwards;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="tv-container">
+        <!-- Video Background -->
+        <div class="video-background" id="videoBg">
+            <div class="channel-label" id="bgLabel">NAIM IPTV</div>
+        </div>
+
+        <!-- Video Player -->
+        <video id="videoPlayer" autoplay></video>
+
+        <!-- Loading Overlay -->
+        <div class="loading-overlay" id="loadingOverlay">
+            <div class="spinner"></div>
+            <div class="load-text">Loading Channel...</div>
+        </div>
+
+        <!-- ==========================================
+        NUMBER INPUT DISPLAY - Center (3 Digit)
+        ========================================== -->
+        <div class="number-input-display" id="numberInputDisplay">
+            <span class="num-highlight" id="numberInputText">001</span>
+        </div>
+
+        <!-- ==========================================
+        OSD BOTTOM BAR - Same Style (Bottom)
+        ========================================== -->
+        <div class="osd-bottom-bar show" id="osdBottomBar">
+            <div class="osd-bottom-content">
+                <!-- Left Side -->
+                <div class="osd-left">
+                    <div class="osd-channel-number" id="osdChannelNumber">01</div>
+                    <div class="osd-channel-info">
+                        <div class="osd-channel-name" id="osdChannelName">INDIA TODAY</div>
+                        <div class="osd-channel-category">Category: <span id="osdChannelCategory">News</span></div>
+                    </div>
+                </div>
+
+                <!-- Right Side -->
+                <div class="osd-right">
+                    <div class="osd-time" id="osdTime">12:34</div>
+                    <div class="osd-live-badge">
+                        <span class="dot"></span>
+                        LIVE
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==========================================
+        CHANNEL CHANGE OSD - Center
+        ========================================== -->
+        <div class="osd-channel-change" id="osdChannelChange">
+            <div class="cc-number" id="ccNumber">01</div>
+            <div class="cc-name" id="ccName">INDIA TODAY</div>
+            <div class="cc-category" id="ccCategory">NEWS</div>
+        </div>
+
+        <!-- ==========================================
+        VOLUME INDICATOR - Left Side
+        ========================================== -->
+        <div class="osd-volume-indicator" id="osdVolumeIndicator">
+            <div class="vol-icon">🔊</div>
+            <div class="vol-bar">
+                <div class="vol-fill" id="volFill" style="height: 70%;"></div>
+            </div>
+            <div class="vol-number" id="volNumber">70</div>
+        </div>
+
+        <!-- Notification -->
+        <div class="osd-notification" id="osdNotification">
+            ✅ <span class="highlight">NAIM IPTV</span> Ready
+        </div>
+
+        <!-- Remote Hint -->
+        <div class="remote-hint">
+            <kbd>0-9</kbd> Channel &nbsp;|&nbsp;
+            <kbd>▲</kbd> <kbd>▼</kbd> &nbsp;|&nbsp;
+            <kbd>◄</kbd> <kbd>►</kbd> Volume
+        </div>
+    </div>
+
+    <script>
+        // ============================================
+        // NAIM IPTV - Set-Top Box OSD Style
+        // ============================================
+
+        // ============================================
+        // CHANNEL DATA
+        // ============================================
+        const channelData = [
+            { name: 'INDIA TODAY', category: 'News', url: 'https://aajtaklive.vgcdn.net/v1/manifest/611d79b11b77e2f571934fd80ca1413453772ac7/24a6099c-c760-4c48-924a-87957ca5869c/3458f643-e80f-4f8e-b9b5-e447548f31ac/0.m3u8' },
+            { name: 'Z NEWS', category: 'News', url: 'https://vg-zeefta.akamaized.net/ptnr-yupptv/title-zeenews/v1/manifest/611d79b11b77e2f571934fd80ca1413453772ac7/8744f9fb-d696-4204-9795-5215ad930c39/0b83ed87-66f5-4c7a-84e4-eb78a2a9cad5/3.m3u8' },
+            { name: 'Republic TV', category: 'News', url: 'https://yupprestreamliveus.akamaized.net/out/v1/vglive-sk-884117/243a5fabe7fe4c8fadf2cb7bcc0a5baf/main_4.m3u8' },
+            { name: 'BBC NEWS', category: 'News', url: 'https://vs-hls-push-ww-live.akamaized.net/x=4/i=urn:bbc:pips:service:bbc_news_channel_hd/t=3840/v=pv14/b=5070016/main.m3u8' },
+            { name: 'Reuters', category: 'News', url: 'https://dbrb49pjoymg4.cloudfront.net/manifest/3fec3e5cac39a52b2132f9c66c83dae043dc17d4/prod_default_xumo-ams-aws/bf4733e6-29d3-4db6-9369-f531f9f445a9/5.m3u8' },
+            { name: 'Star jalsha', category: 'Entertainment', url: 'https://tvsen1.aynaott.com/gUX8BJmNc2yF/index.m3u8' },
+            { name: 'Z Bangla', category: 'Entertainment', url: 'https://tvsen1.aynaott.com/gUX8BJmNc2yF/index.m3u8' },
+            { name: 'N TV', category: 'Entertainment', url: 'https://owrcovcrpy.gpcdn.net/bpk-tv/1716/output/1716-audio_113462_eng=113200-video=2202800.m3u8' },
+            { name: 'GEO SUPER', category: 'Sports', url: 'https://ml-pull-dvc-myco.io:2096/GEO_SUPER/tracks-v1a1/mono.ts.m3u8' },
+            { name: 'T SPORTS', category: 'Sports', url: 'https://satoshi-cors.herokuapp.com/http://tvn2.chowdhury-shaheb.com/tsport/index.m3u8' },
+            { name: 'Dorimon 24/7', category: 'Kids', url: 'https://live20.bozztv.com/giatvplayout7/giatv-209902/tracks-v1a1/mono.ts.m3u8' }
+        ];
+
+        // ============================================
+        // STATE
+        // ============================================
+        let currentIndex = 0;
+        let isPlaying = true;
+        let volume = 70;
+        let volumeTimeout = null;
+        let isLoading = false;
+        let channelTimeout = null;
+        let isOSDVisible = true;
+        let loadingChannelIndex = -1;
+
+        // Number input state (3 digit)
+        let numberInputBuffer = '';
+        let numberInputTimeout = null;
+        let isNumberInputActive = false;
+        const MAX_DIGITS = 3;
+
+        // ============================================
+        // DOM ELEMENTS
+        // ============================================
+        const video = document.getElementById('videoPlayer');
+        const bgLabel = document.getElementById('bgLabel');
+        const osdChannelNumber = document.getElementById('osdChannelNumber');
+        const osdChannelName = document.getElementById('osdChannelName');
+        const osdChannelCategory = document.getElementById('osdChannelCategory');
+        const osdBottomBar = document.getElementById('osdBottomBar');
+        const osdTime = document.getElementById('osdTime');
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        const osdVolumeIndicator = document.getElementById('osdVolumeIndicator');
+        const volFill = document.getElementById('volFill');
+        const volNumber = document.getElementById('volNumber');
+        const osdNotification = document.getElementById('osdNotification');
+        const ccNumber = document.getElementById('ccNumber');
+        const ccName = document.getElementById('ccName');
+        const ccCategory = document.getElementById('ccCategory');
+        const osdChannelChange = document.getElementById('osdChannelChange');
+        const numberInputDisplay = document.getElementById('numberInputDisplay');
+        const numberInputText = document.getElementById('numberInputText');
+
+        // ============================================
+        // TIME UPDATE
+        // ============================================
+        function updateTime() {
+            const now = new Date();
+            const h = String(now.getHours()).padStart(2, '0');
+            const m = String(now.getMinutes()).padStart(2, '0');
+            osdTime.textContent = h + ':' + m;
+        }
+        updateTime();
+        setInterval(updateTime, 10000);
+
+        // ============================================
+        // NOTIFICATION
+        // ============================================
+        function showNotification(msg, duration = 2500) {
+            osdNotification.textContent = msg;
+            osdNotification.classList.add('show');
+            clearTimeout(osdNotification._timeout);
+            osdNotification._timeout = setTimeout(() => {
+                osdNotification.classList.remove('show');
+            }, duration);
+        }
+
+        // ============================================
+        // SHOW CHANNEL CHANGE OSD
+        // ============================================
+        function showChannelChange(index) {
+            const num = String(index + 1).padStart(2, '0');
+            const channel = channelData[index];
+            
+            ccNumber.textContent = num;
+            ccName.textContent = channel.name;
+            ccCategory.textContent = channel.category.toUpperCase();
+            
+            osdChannelChange.classList.remove('pop-out-osd', 'pop-in-osd');
+            void osdChannelChange.offsetWidth;
+            osdChannelChange.classList.add('pop-in-osd');
+            osdChannelChange.classList.add('show');
+            
+            clearTimeout(channelTimeout);
+            channelTimeout = setTimeout(() => {
+                osdChannelChange.classList.remove('pop-in-osd');
+                osdChannelChange.classList.add('pop-out-osd');
+                setTimeout(() => {
+                    osdChannelChange.classList.remove('show', 'pop-out-osd');
+                }, 300);
+            }, 2500);
+        }
+
+        // ============================================
+        // SHOW NUMBER INPUT (3 Digit)
+        // ============================================
+        function showNumberInput(number) {
+            const padded = number.padStart(3, '0');
+            numberInputText.textContent = padded;
+            numberInputDisplay.classList.remove('pop-out-number', 'pop-in-number');
+            void numberInputDisplay.offsetWidth;
+            numberInputDisplay.classList.add('pop-in-number');
+            numberInputDisplay.classList.add('show');
+            isNumberInputActive = true;
+        }
+
+        function hideNumberInput() {
+            numberInputDisplay.classList.remove('pop-in-number');
+            numberInputDisplay.classList.add('pop-out-number');
+            setTimeout(() => {
+                numberInputDisplay.classList.remove('show', 'pop-out-number');
+                isNumberInputActive = false;
+            }, 200);
+        }
+
+        // ============================================
+        // HANDLE NUMBER INPUT (3 Digit)
+        // ============================================
+        function handleNumberInput(key) {
+            clearTimeout(numberInputTimeout);
+            
+            if (numberInputBuffer.length >= MAX_DIGITS) {
+                numberInputBuffer = '';
+            }
+            
+            numberInputBuffer += key;
+            showNumberInput(numberInputBuffer);
+            
+            if (numberInputBuffer.length === MAX_DIGITS) {
+                const channelNum = parseInt(numberInputBuffer);
+                if (channelNum >= 1 && channelNum <= channelData.length) {
+                    loadChannel(channelNum - 1);
+                    showNotification('📺 Channel ' + numberInputBuffer, 1500);
+                } else {
+                    showNotification('⚠️ Invalid channel: ' + numberInputBuffer, 1500);
+                }
+                
+                setTimeout(() => {
+                    hideNumberInput();
+                }, 500);
+                
+                numberInputBuffer = '';
+                return;
+            }
+            
+            numberInputTimeout = setTimeout(() => {
+                if (numberInputBuffer.length > 0) {
+                    const channelNum = parseInt(numberInputBuffer);
+                    if (channelNum >= 1 && channelNum <= channelData.length) {
+                        loadChannel(channelNum - 1);
+                        showNotification('📺 Channel ' + numberInputBuffer, 1500);
+                    } else {
+                        showNotification('⚠️ Invalid channel: ' + numberInputBuffer, 1500);
+                    }
+                }
+                hideNumberInput();
+                numberInputBuffer = '';
+            }, 1500);
+        }
+
+        // ============================================
+        // TOGGLE OSD
+        // ============================================
+        function toggleOSD() {
+            isOSDVisible = !isOSDVisible;
+            if (isOSDVisible) {
+                osdBottomBar.classList.add('show');
+                showNotification('📺 OSD Visible', 1000);
+            } else {
+                osdBottomBar.classList.remove('show');
+                showNotification('📺 OSD Hidden', 1000);
+            }
+        }
+
+        // ============================================
+        // VOLUME CONTROL
+        // ============================================
+        function setVolume(val) {
+            volume = Math.max(0, Math.min(100, parseInt(val)));
+            video.volume = volume / 100;
+            volFill.style.height = volume + '%';
+            volNumber.textContent = volume;
+            
+            osdVolumeIndicator.classList.add('show');
+            clearTimeout(volumeTimeout);
+            volumeTimeout = setTimeout(() => {
+                osdVolumeIndicator.classList.remove('show');
+            }, 1500);
+        }
+
+        function changeVolume(delta) {
+            const newVol = volume + delta;
+            setVolume(newVol);
+            showNotification('🔊 Volume: ' + newVol + '%', 1200);
+        }
+
+        // ============================================
+        // LOAD CHANNEL
+        // ============================================
+        function loadChannel(index) {
+            const total = channelData.length;
+            if (index < 0) index = total - 1;
+            if (index >= total) index = 0;
+            
+            currentIndex = index;
+            const channel = channelData[index];
+            
+            const num = String(index + 1).padStart(2, '0');
+            osdChannelNumber.textContent = num;
+            osdChannelName.textContent = channel.name;
+            osdChannelCategory.textContent = channel.category;
+            bgLabel.textContent = channel.name;
+            
+            showChannelChange(index);
+            
+            osdBottomBar.classList.add('show');
+            isOSDVisible = true;
+            
+            loadingOverlay.classList.add('show');
+            loadingChannelIndex = index;
+            
+            const url = channel.url;
+            
+            if (window.hls) {
+                window.hls.destroy();
+                window.hls = null;
+            }
+            
+            video.oncanplay = null;
+            video.onerror = null;
+            
+            if (url && url.includes('.m3u8')) {
+                if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                    video.src = url;
+                    video.load();
+                    video.play().catch(() => {
+                        if (loadingChannelIndex === index) {
+                            loadingOverlay.classList.remove('show');
+                            showNotification('⚠️ Failed to play: ' + channel.name, 2000);
+                        }
+                    });
+                } else if (typeof Hls !== 'undefined' && Hls.isSupported()) {
+                    const hls = new Hls({
+                        enableWorker: true,
+                        lowLatencyMode: true
+                    });
+                    window.hls = hls;
+                    hls.loadSource(url);
+                    hls.attachMedia(video);
+                    
+                    hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                        if (loadingChannelIndex === index) {
+                            video.play();
+                            loadingOverlay.classList.remove('show');
+                            showNotification('▶ ' + channel.name, 1500);
+                        }
+                    });
+                    
+                    hls.on(Hls.Events.ERROR, function(event, data) {
+                        if (loadingChannelIndex === index) {
+                            loadingOverlay.classList.remove('show');
+                            if (data.fatal) {
+                                showNotification('⚠️ Failed to load: ' + channel.name, 2000);
+                            }
+                        }
+                    });
+                } else {
+                    video.src = url;
+                    video.load();
+                    video.play().catch(() => {
+                        if (loadingChannelIndex === index) {
+                            loadingOverlay.classList.remove('show');
+                            showNotification('⚠️ Failed to play: ' + channel.name, 2000);
+                        }
+                    });
+                }
+            } else {
+                video.src = url;
+                video.load();
+                video.play().catch(() => {
+                    if (loadingChannelIndex === index) {
+                        loadingOverlay.classList.remove('show');
+                        showNotification('⚠️ Failed to play: ' + channel.name, 2000);
+                    }
+                });
+            }
+            
+            video.oncanplay = function() {
+                if (loadingChannelIndex === index) {
+                    loadingOverlay.classList.remove('show');
+                    if (isPlaying) {
+                        video.play();
+                    }
+                    showNotification('▶ ' + channel.name, 1500);
+                }
+            };
+            
+            video.onerror = function() {
+                if (loadingChannelIndex === index) {
+                    loadingOverlay.classList.remove('show');
+                    showNotification('⚠️ Error loading: ' + channel.name, 2000);
+                }
+            };
+        }
+
+        // ============================================
+        // CHANNEL NAVIGATION
+        // ============================================
+        function nextChannel() {
+            clearTimeout(numberInputTimeout);
+            numberInputBuffer = '';
+            hideNumberInput();
+            
+            const newIndex = currentIndex + 1;
+            loadChannel(newIndex);
+            showNotification('⬆ ' + channelData[newIndex % channelData.length].name, 1500);
+        }
+
+        function prevChannel() {
+            clearTimeout(numberInputTimeout);
+            numberInputBuffer = '';
+            hideNumberInput();
+            
+            const newIndex = currentIndex - 1;
+            if (newIndex < 0) {
+                loadChannel(channelData.length - 1);
+                showNotification('⬇ ' + channelData[channelData.length - 1].name, 1500);
+            } else {
+                loadChannel(newIndex);
+                showNotification('⬇ ' + channelData[newIndex].name, 1500);
+            }
+        }
+
+        // ============================================
+        // PLAY/PAUSE
+        // ============================================
+        function togglePlay() {
+            isPlaying = !isPlaying;
+            if (isPlaying) {
+                video.play();
+                showNotification('▶ Playing', 1200);
+            } else {
+                video.pause();
+                showNotification('⏸ Paused', 1200);
+            }
+        }
+
+        // ============================================
+        // STOP
+        // ============================================
+        function stopPlayback() {
+            isPlaying = false;
+            video.pause();
+            video.src = '';
+            if (window.hls) {
+                window.hls.destroy();
+                window.hls = null;
+            }
+            osdBottomBar.classList.remove('show');
+            bgLabel.textContent = 'NAIM IPTV';
+            osdChannelChange.classList.remove('show', 'pop-in-osd', 'pop-out-osd');
+            loadingOverlay.classList.remove('show');
+            hideNumberInput();
+            numberInputBuffer = '';
+            showNotification('⏹ Stopped', 1500);
+        }
+
+        // ============================================
+        // KEYBOARD CONTROLS (TV Remote)
+        // ============================================
+        document.addEventListener('keydown', function(e) {
+            const key = e.key;
+            
+            if (key >= '0' && key <= '9') {
+                e.preventDefault();
+                handleNumberInput(key);
+                return;
+            }
+            
+            if (isNumberInputActive) {
+                clearTimeout(numberInputTimeout);
+                numberInputBuffer = '';
+                hideNumberInput();
+            }
+            
+            if (key === 'ArrowUp') {
+                e.preventDefault();
+                prevChannel();
+            }
+            else if (key === 'ArrowDown') {
+                e.preventDefault();
+                nextChannel();
+            }
+            else if (key === 'ArrowLeft') {
+                e.preventDefault();
+                changeVolume(-5);
+            }
+            else if (key === 'ArrowRight') {
+                e.preventDefault();
+                changeVolume(5);
+            }
+            else if (key === ' ' || key === 'Space') {
+                e.preventDefault();
+                togglePlay();
+            }
+            else if (key === 'Enter') {
+                e.preventDefault();
+                showChannelChange(currentIndex);
+                showNotification('📺 ' + channelData[currentIndex].name, 1500);
+            }
+            else if (key === 'Escape') {
+                e.preventDefault();
+                stopPlayback();
+            }
+            else if (key === 'i' || key === 'I') {
+                toggleOSD();
+            }
+        });
+
+        // ============================================
+        // SHOW VOLUME ON MOUSE MOVE
+        // ============================================
+        document.addEventListener('mousemove', function(e) {
+            if (e.clientX < 150) {
+                osdVolumeIndicator.classList.add('show');
+                clearTimeout(volumeTimeout);
+                volumeTimeout = setTimeout(() => {
+                    osdVolumeIndicator.classList.remove('show');
+                }, 2000);
+            }
+        });
+
+        // ============================================
+        // SHOW OSD ON MOUSE MOVE
+        // ============================================
+        let osdHideTimeout = null;
+        document.addEventListener('mousemove', function() {
+            if (!isOSDVisible) return;
+            osdBottomBar.classList.add('show');
+            clearTimeout(osdHideTimeout);
+            osdHideTimeout = setTimeout(() => {
+                if (isOSDVisible) {
+                    osdBottomBar.classList.remove('show');
+                }
+            }, 5000);
+        });
+
+        // ============================================
+        // INITIALIZE
+        // ============================================
+        function init() {
+            setVolume(70);
+            setTimeout(() => {
+                loadChannel(0);
+                showNotification('📺 NAIM IPTV Ready', 2000);
+            }, 500);
+
+            console.log('📺 NAIM IPTV - Responsive OSD Style Loaded!');
+            console.log('📺 Supports: 24", 32", 43" and all TV sizes');
+            console.log('🎮 Remote Controls:');
+            console.log('  0-9  = Direct Channel Select (3 digits)');
+            console.log('  ▲ ▼  = Change Channel');
+            console.log('  ◄ ►  = Volume');
+            console.log('  ␣    = Play/Pause');
+            console.log('  ENTER = Show Channel Info');
+            console.log('  ESC  = Stop');
+            console.log('  I    = Toggle OSD');
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            init();
+        }
+
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden && isPlaying) {
+                video.pause();
+            } else if (!document.hidden && isPlaying) {
+                video.play();
+            }
+        });
+    </script>
+
+</body>
+</html>
